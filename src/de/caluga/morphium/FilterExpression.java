@@ -1,10 +1,10 @@
 package de.caluga.morphium;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Vector;
+import java.util.Map;
 
 public class FilterExpression {
     private String field;
@@ -37,15 +37,15 @@ public class FilterExpression {
 
     public void addChild(FilterExpression e) {
         if (children == null) {
-            children = new Vector<FilterExpression>();
+            children = new ArrayList<>();
         }
         children.add(e);
     }
 
-    public DBObject dbObject() {
-        DBObject o = new BasicDBObject();
+    public Map<String, Object> dbObject() {
+        Map<String, Object> o = new HashMap<>();
         if (children != null) {
-            DBObject expression = new BasicDBObject();
+            Map<String, Object> expression = new HashMap<>();
             for (FilterExpression flt : children) {
                 expression.put(flt.getField(), flt.getValue());
             }
@@ -60,10 +60,11 @@ public class FilterExpression {
         return o;
     }
 
+    @SuppressWarnings("Duplicates")
     @Override
     public String toString() {
         StringBuilder c = new StringBuilder();
-        if (children != null && children.size() > 0) {
+        if (children != null && !children.isEmpty()) {
             c.append("[ ");
             for (FilterExpression fe : children) {
                 c.append(fe.toString());

@@ -1,7 +1,8 @@
 package de.caluga.morphium;
 
-import com.mongodb.DBObject;
 import org.json.simple.parser.ParseException;
+
+import java.util.Map;
 
 /**
  * User: Stpehan Bösebeck
@@ -12,13 +13,17 @@ import org.json.simple.parser.ParseException;
  */
 public interface ObjectMapper {
 
-    public String getCollectionName(Class cls);
+    String getCollectionName(Class cls);
 
-    public DBObject marshall(Object o);
+    Object marshallIfNecessary(Object o);
 
-    public <T> T unmarshall(Class<? extends T> cls, DBObject o);
+    void registerCustomTypeMapper(Class c, TypeMapper m);
 
-    public <T> T unmarshall(Class<? extends T> cls, String json) throws ParseException;
+    Map<String, Object> marshall(Object o);
+
+    <T> T unmarshall(Class<? extends T> cls, Map<String, Object> o);
+
+    <T> T unmarshall(Class<? extends T> cls, String json) throws ParseException;
 
     /**
      * get current name provider for class
@@ -27,7 +32,7 @@ public interface ObjectMapper {
      * @return configured name provider in @Entity or currently set one
      */
     @SuppressWarnings("UnusedDeclaration")
-    public NameProvider getNameProviderForClass(Class<?> cls);
+    NameProvider getNameProviderForClass(Class<?> cls);
 
     /**
      * override settings vor name Provider from @Entity
@@ -35,7 +40,12 @@ public interface ObjectMapper {
      * @param cls - class
      * @param np  the name Provider to use
      */
-    public void setNameProviderForClass(Class<?> cls, NameProvider np);
+    void setNameProviderForClass(Class<?> cls, NameProvider np);
 
     void setMorphium(Morphium m);
+
+    Morphium getMorphium();
+
+
+    void deregisterTypeMapper(Class c);
 }

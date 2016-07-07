@@ -3,13 +3,13 @@ package de.caluga.morphium;
 import de.caluga.morphium.cache.CacheElement;
 
 import java.util.Arrays;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.Map;
 
 @SuppressWarnings("StringBufferMayBeStringBuilder")
-public class Statistics extends Hashtable<String, Double> {
+public class Statistics extends HashMap<String, Double> {
     private static final long serialVersionUID = -2368547656520608318L;
-    private transient final Morphium morphium;
+    private final transient Morphium morphium;
 
 
     @SuppressWarnings("rawtypes")
@@ -19,9 +19,9 @@ public class Statistics extends Hashtable<String, Double> {
             super.put(et.getKey().name(), (double) et.getValue().get());
         }
         double entries = 0;
-        Hashtable<Class<?>, Hashtable<String, CacheElement>> cc = morphium.getCache().cloneCache();
-        for (Map.Entry<Class<?>, Hashtable<String, CacheElement>> en : cc.entrySet()) {
-            Hashtable<String, CacheElement> lst = en.getValue();
+        Map<Class<?>, Map<String, CacheElement>> cc = morphium.getCache().getCache();
+        for (Map.Entry<Class<?>, Map<String, CacheElement>> en : cc.entrySet()) {
+            Map<String, CacheElement> lst = en.getValue();
             entries += lst.size();
             super.put("X-Entries for: " + en.getKey().getName(), (double) lst.size());
         }
@@ -29,35 +29,38 @@ public class Statistics extends Hashtable<String, Double> {
 
 
         super.put(StatisticKeys.WRITE_BUFFER_ENTRIES.name(), (double) morphium.getWriteBufferCount());
-        super.put(StatisticKeys.CHITSPERC.name(), ((double) morphium.getStats().get(StatisticKeys.CHITS).get()) / (morphium.getStats().get(StatisticKeys.READS).get() - morphium.getStats().get(StatisticKeys.NO_CACHED_READS).get()) * 100.0);
-        super.put(StatisticKeys.CMISSPERC.name(), ((double) morphium.getStats().get(StatisticKeys.CMISS).get()) / (morphium.getStats().get(StatisticKeys.READS).get() - morphium.getStats().get(StatisticKeys.NO_CACHED_READS).get()) * 100.0);
+        super.put(StatisticKeys.CHITSPERC.name(), ((double) morphium.getStats().get(StatisticKeys.CHITS).get()) / (morphium.getStats().get(StatisticKeys.CHITS).get() + morphium.getStats().get(StatisticKeys.CMISS).get() - morphium.getStats().get(StatisticKeys.NO_CACHED_READS).get()) * 100.0);
+        super.put(StatisticKeys.CMISSPERC.name(), ((double) morphium.getStats().get(StatisticKeys.CMISS).get()) / (morphium.getStats().get(StatisticKeys.CHITS).get() + morphium.getStats().get(StatisticKeys.CMISS).get() - morphium.getStats().get(StatisticKeys.NO_CACHED_READS).get()) * 100.0);
     }
 
 
-    public synchronized Double get(Enum key) {
+    @SuppressWarnings("unused")
+    public Double get(Enum key) {
         return get(key.name());
     }
 
     @Override
-    public synchronized Double put(String arg0, Double arg1) {
+    public Double put(String arg0, Double arg1) {
         throw new RuntimeException("not allowed!");
     }
 
     @Override
-    public synchronized void putAll(@SuppressWarnings("rawtypes") Map arg0) {
+    public void putAll(@SuppressWarnings("rawtypes") Map arg0) {
         throw new RuntimeException("not allowed");
     }
 
     @Override
-    public synchronized Double remove(Object arg0) {
+    public Double remove(Object arg0) {
         throw new RuntimeException("not allowed");
     }
 
+    @SuppressWarnings("EmptyMethod")
     @Override
     public boolean equals(Object o) {
         return super.equals(o);
     }
 
+    @SuppressWarnings("EmptyMethod")
     @Override
     public int hashCode() {
         return super.hashCode();
@@ -65,7 +68,7 @@ public class Statistics extends Hashtable<String, Double> {
 
     @Override
     public String toString() {
-        StringBuffer b = new StringBuffer();
+        StringBuilder b = new StringBuilder();
         StatisticKeys[] lst = morphium.getStats().keySet().toArray(new StatisticKeys[morphium.getStats().keySet().size()]);
         Arrays.sort(lst);
         for (StatisticKeys k : lst) {

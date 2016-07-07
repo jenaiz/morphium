@@ -1,7 +1,8 @@
 package de.caluga.test.mongo.suite;
 
-import de.caluga.morphium.MorphiumSingleton;
 import de.caluga.morphium.query.Query;
+import de.caluga.test.mongo.suite.data.EmbeddedObject;
+import de.caluga.test.mongo.suite.data.UncachedObject;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -13,30 +14,30 @@ import java.util.Map;
  * User: Stephan Bösebeck
  * Date: 09.05.12
  * Time: 10:46
- * <p/>
+ * <p>
  */
 public class UpdateTest extends MongoTest {
     @Test
     public void incMultipleFieldsTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(UncachedMultipleCounter.class);
+        morphium.dropCollection(UncachedMultipleCounter.class);
         for (int i = 1; i <= 50; i++) {
             UncachedMultipleCounter o = new UncachedMultipleCounter();
             o.setCounter(i);
             o.setValue("Uncached " + i);
             o.setCounter2((double) i / 2.0);
-            MorphiumSingleton.get().store(o);
+            morphium.store(o);
         }
-        Query<UncachedMultipleCounter> q = MorphiumSingleton.get().createQueryFor(UncachedMultipleCounter.class);
+        Query<UncachedMultipleCounter> q = morphium.createQueryFor(UncachedMultipleCounter.class);
         q = q.f("value").eq("Uncached " + 5);
 
-        Map<String, Double> toInc = new HashMap<String, Double>();
+        Map<String, Number> toInc = new HashMap<>();
         toInc.put("counter", 10.0);
         toInc.put("counter2", 0.5);
-        MorphiumSingleton.get().inc(q, toInc, false, true, null);
-
+        morphium.inc(q, toInc, false, true, null);
+        Thread.sleep(1000);
         assert (q.get().getCounter() == 15) : "counter is:" + q.get().getCounter();
         assert (q.get().getCounter2() == 3);
-        MorphiumSingleton.get().inc(q, toInc, false, true, null);
+        morphium.inc(q, toInc, false, true, null);
         assert (q.get().getCounter() == 25) : "counter is:" + q.get().getCounter();
         assert (q.get().getCounter2() == 3.5);
 
@@ -48,30 +49,30 @@ public class UpdateTest extends MongoTest {
             UncachedObject o = new UncachedObject();
             o.setCounter(i);
             o.setValue("Uncached " + i);
-            MorphiumSingleton.get().store(o);
+            morphium.store(o);
         }
 
-        Query<UncachedObject> q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("value").eq("Uncached " + 5);
         UncachedObject uc = q.get();
-        MorphiumSingleton.get().inc(uc, "counter", 1);
+        morphium.inc(uc, "counter", 1);
 
         assert (uc.getCounter() == 6) : "Counter is not correct: " + uc.getCounter();
 
         //inc without object - single update, no upsert
-        q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("counter").gte(10).f("counter").lte(25).sort("counter");
-        MorphiumSingleton.get().inc(q, "counter", 100);
+        morphium.inc(q, "counter", 100);
 
         uc = q.get();
         assert (uc.getCounter() == 11) : "Counter is wrong: " + uc.getCounter();
 
         //inc without object directly in DB - multiple update
-        q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("counter").gt(10).f("counter").lte(25);
-        MorphiumSingleton.get().inc(q, "counter", 100, false, true);
+        morphium.inc(q, "counter", 100, false, true);
 
-        q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("counter").gt(110).f("counter").lte(125);
         List<UncachedObject> lst = q.asList(); //read the data after update
         for (UncachedObject u : lst) {
@@ -86,35 +87,37 @@ public class UpdateTest extends MongoTest {
             UncachedObject o = new UncachedObject();
             o.setCounter(i);
             o.setValue("Uncached " + i);
-            MorphiumSingleton.get().store(o);
+            morphium.store(o);
         }
 
-        Query<UncachedObject> q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("value").eq("Uncached " + 5);
         UncachedObject uc = q.get();
-        MorphiumSingleton.get().dec(uc, "counter", 1);
+        morphium.dec(uc, "counter", 1);
+        Thread.sleep(300);
 
         assert (uc.getCounter() == 4) : "Counter is not correct: " + uc.getCounter();
 
         //inc without object - single update, no upsert
-        q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("counter").gte(40).f("counter").lte(55).sort("counter");
-        MorphiumSingleton.get().dec(q, "counter", 40);
-
+        morphium.dec(q, "counter", 40);
+        Thread.sleep(300);
         uc = q.get();
         assert (uc.getCounter() == 41) : "Counter is wrong: " + uc.getCounter();
 
         //inc without object directly in DB - multiple update
-        q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("counter").gt(40).f("counter").lte(55);
-        MorphiumSingleton.get().dec(q, "counter", 40, false, true);
+        morphium.dec(q, "counter", 40, false, true);
+        Thread.sleep(300);
 
-        q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("counter").gt(0).f("counter").lte(55);
         List<UncachedObject> lst = q.asList(); //read the data after update
         for (UncachedObject u : lst) {
             assert (u.getCounter() > 0 && u.getCounter() <= 55) : "Counter wrong: " + u.getCounter();
-//            assert(u.getValue().equals("Uncached "+(u.getCounter()-40))):"Value wrong: Counter: "+u.getCounter()+" Value;: "+u.getValue();
+            //            assert(u.getValue().equals("Uncached "+(u.getCounter()-40))):"Value wrong: Counter: "+u.getCounter()+" Value;: "+u.getValue();
         }
 
     }
@@ -125,12 +128,13 @@ public class UpdateTest extends MongoTest {
             UncachedObject o = new UncachedObject();
             o.setCounter(i);
             o.setValue("Uncached " + i);
-            MorphiumSingleton.get().store(o);
+            morphium.store(o);
         }
-
-        Query<UncachedObject> q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
+        Thread.sleep(100);
+        Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
         q = q.f("value").eq("unexistent");
-        MorphiumSingleton.get().set(q, "counter", 999, true, false);
+        morphium.set(q, "counter", 999, true, false);
+        Thread.sleep(100);
         UncachedObject uc = q.get(); //should now work
 
         assert (uc != null) : "Not found?!?!?";
@@ -138,63 +142,75 @@ public class UpdateTest extends MongoTest {
     }
 
     @Test
-    public void pushTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(ListContainer.class);
-        for (int i = 1; i <= 50; i++) {
-            ListContainer lc = new ListContainer();
-            lc.addLong(12 + i);
-            lc.addString("string");
-            lc.setName("LC" + i);
-            MorphiumSingleton.get().store(lc);
-        }
+    public void setTestEnum() throws Exception {
+        EnumUC u = new EnumUC();
+        u.setCounter(1);
+        u.setValue("something");
+        morphium.store(u);
 
-        Query<ListContainer> lc = MorphiumSingleton.get().createQueryFor(ListContainer.class);
-        lc = lc.f("name").eq("LC15");
-        MorphiumSingleton.get().push(lc, "long_list", 12345l);
-        ListContainer cont = lc.get();
-        assert (cont.getLongList().contains(12345l)) : "No push?";
+        morphium.set(u, "val", Value.v2);
 
     }
 
+    @Test
+    public void pushTest() throws Exception {
+        morphium.dropCollection(ListContainer.class);
+        for (int i = 1; i <= 50; i++) {
+            ListContainer lc = new ListContainer();
+            lc.addLong(12 + i);
+            lc.addString("string");
+            lc.setName("LC" + i);
+            morphium.store(lc);
+        }
+
+        Query<ListContainer> lc = morphium.createQueryFor(ListContainer.class);
+        lc = lc.f("name").eq("LC15");
+        morphium.push(lc, "long_list", 12345L);
+        ListContainer cont = lc.get();
+        assert (cont.getLongList().contains(12345L)) : "No push?";
+
+    }
 
     @Test
     public void pushEntityTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(ListContainer.class);
+        morphium.dropCollection(ListContainer.class);
 
         for (int i = 1; i <= 50; i++) {
             ListContainer lc = new ListContainer();
             lc.addLong(12 + i);
             lc.addString("string");
             lc.setName("LC" + i);
-            MorphiumSingleton.get().store(lc);
+            morphium.store(lc);
         }
-        Query<ListContainer> lc = MorphiumSingleton.get().createQueryFor(ListContainer.class);
+        Query<ListContainer> lc = morphium.createQueryFor(ListContainer.class);
         lc = lc.f("name").eq("LC15");
         EmbeddedObject em = new EmbeddedObject();
         em.setValue("emb Value");
         em.setTest(1);
-        MorphiumSingleton.get().push(lc, "embedded_object_list", em);
+        morphium.push(lc, "embedded_object_list", em);
         em = new EmbeddedObject();
         em.setValue("emb Value 2");
         em.setTest(2);
-        MorphiumSingleton.get().push(lc, "embedded_object_list", em);
+        morphium.push(lc, "embedded_object_list", em);
         waitForWrites();
 
         ListContainer lc2 = lc.get();
         assert (lc2.getEmbeddedObjectList() != null);
         assert (lc2.getEmbeddedObjectList().size() == 2);
-        assert (lc2.getEmbeddedObjectList().get(0).getTest() == 1l);
+        assert (lc2.getEmbeddedObjectList().get(0).getTest() == 1L);
     }
 
     @Test
     public void unsetTest() throws Exception {
         createUncachedObjects(100);
-        Query<UncachedObject> q = MorphiumSingleton.get().createQueryFor(UncachedObject.class).f("counter").eq(50);
-        MorphiumSingleton.get().unsetQ(q, "value");
+        Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class).f("counter").eq(50);
+        morphium.unsetQ(q, "value");
+        Thread.sleep(300);
         UncachedObject uc = q.get();
         assert (uc.getValue() == null);
-        q = MorphiumSingleton.get().createQueryFor(UncachedObject.class).f("counter").gt(90);
-        MorphiumSingleton.get().unsetQ(q, false, "value");
+        q = morphium.createQueryFor(UncachedObject.class).f("counter").gt(90);
+        morphium.unsetQ(q, false, "value");
+        Thread.sleep(300);
         List<UncachedObject> lst = q.asList();
         boolean found = false;
         for (UncachedObject u : lst) {
@@ -204,7 +220,8 @@ public class UpdateTest extends MongoTest {
             }
         }
         assert (found);
-        MorphiumSingleton.get().unsetQ(q, true, "binary_data", "bool_data", "value");
+        morphium.unsetQ(q, true, "binary_data", "bool_data", "value");
+        Thread.sleep(300);
         lst = q.asList();
         for (UncachedObject u : lst) {
             assert (u.getValue() == null);
@@ -214,19 +231,19 @@ public class UpdateTest extends MongoTest {
 
     @Test
     public void pushEntityListTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(ListContainer.class);
+        morphium.dropCollection(ListContainer.class);
 
         for (int i = 1; i <= 50; i++) {
             ListContainer lc = new ListContainer();
             lc.addLong(12 + i);
             lc.addString("string");
             lc.setName("LC" + i);
-            MorphiumSingleton.get().store(lc);
+            morphium.store(lc);
         }
 
-        List<EmbeddedObject> obj = new ArrayList<EmbeddedObject>();
+        List<EmbeddedObject> obj = new ArrayList<>();
 
-        Query<ListContainer> lc = MorphiumSingleton.get().createQueryFor(ListContainer.class);
+        Query<ListContainer> lc = morphium.createQueryFor(ListContainer.class);
         lc = lc.f("name").eq("LC15");
         EmbeddedObject em = new EmbeddedObject();
         em.setValue("emb Value");
@@ -244,13 +261,21 @@ public class UpdateTest extends MongoTest {
         obj.add(em);
 
 
-        MorphiumSingleton.get().pushAll(lc, "embedded_object_list", obj, false, true);
+        morphium.pushAll(lc, "embedded_object_list", obj, false, true);
         waitForWrites();
         Thread.sleep(2500);
         ListContainer lc2 = lc.get();
         assert (lc2.getEmbeddedObjectList() != null);
         assert (lc2.getEmbeddedObjectList().size() == 3) : "Size wrong should be 3 is " + lc2.getEmbeddedObjectList().size();
-        assert (lc2.getEmbeddedObjectList().get(0).getTest() == 1l);
+        assert (lc2.getEmbeddedObjectList().get(0).getTest() == 1L);
+    }
+
+    public enum Value {
+        v1, v2, v3
+    }
+
+    public static class EnumUC extends UncachedObject {
+        private Value val;
     }
 
     public static class UncachedMultipleCounter extends UncachedObject {

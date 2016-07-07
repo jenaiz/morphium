@@ -6,25 +6,32 @@ import net.sf.cglib.proxy.MethodProxy;
 
 import java.io.Serializable;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Vector;
 
 public class PartiallyUpdateableProxy<T> implements MethodInterceptor, PartiallyUpdateable, Serializable {
     private static final long serialVersionUID = -1277417045334974980L;
-    private transient final Morphium morphium;
-    private AnnotationAndReflectionHelper ah;
+    //    private final transient Morphium morphium;
+    private final AnnotationAndReflectionHelper ah;
 
-    private List<String> updateableFields;
-    private T reference;
+    private final List<String> updateableFields;
+    private final T reference;
 
     public PartiallyUpdateableProxy(Morphium m, T o) {
-        updateableFields = new Vector<String>();
+        updateableFields = Collections.synchronizedList(new ArrayList<>());
         reference = o;
-        morphium = m;
-        ah = morphium.getARHelper();
+        //        morphium = m;
+        ah = m.getARHelper();
     }
 
     public T __getDeref() {
+        //do nothing - will be intercepted
+        return reference;
+    }
+
+    @SuppressWarnings("unused")
+    public T __getPureDeref() {
         //do nothing - will be intercepted
         return reference;
     }
@@ -44,6 +51,7 @@ public class PartiallyUpdateableProxy<T> implements MethodInterceptor, Partially
         if (method.getName().startsWith("set") || method.isAnnotationPresent(PartialUpdate.class)) {
             PartialUpdate up = method.getAnnotation(PartialUpdate.class);
             if (up != null) {
+                //noinspection unchecked
                 if (!ah.getFields(o.getClass()).contains(up.value())) {
                     throw new IllegalArgumentException("Field " + up.value() + " is not known to Type " + o.getClass().getName());
                 }
@@ -68,6 +76,6 @@ public class PartiallyUpdateableProxy<T> implements MethodInterceptor, Partially
             return reference;
         }
         return method.invoke(reference, objects);
-//            return methodProxy.invokeSuper(reference, objects);
+        //            return methodProxy.invokeSuper(reference, objects);
     }
 }

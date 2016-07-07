@@ -1,7 +1,5 @@
 package de.caluga.morphium.aggregation;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
 import de.caluga.morphium.Morphium;
 import de.caluga.morphium.async.AsyncOperationCallback;
 import de.caluga.morphium.query.Query;
@@ -27,49 +25,77 @@ import java.util.Map;
  */
 public interface Aggregator<T, R> {
 
-    public void setMorphium(Morphium m);
+    @SuppressWarnings("unused")
+    Morphium getMorphium();
 
-    public Morphium getMorphium();
+    void setMorphium(Morphium m);
 
-    public void setSearchType(Class<? extends T> type);
+    Class<? extends T> getSearchType();
 
-    public Class<? extends T> getSearchType();
+    void setSearchType(Class<? extends T> type);
 
-    public void setResultType(Class<? extends R> type);
+    Class<? extends R> getResultType();
 
-    public Class<? extends R> getResultType();
+    void setResultType(Class<? extends R> type);
 
-    public Aggregator<T, R> project(Map<String, Object> m);  //field -> other field, field -> 0,1
+    Aggregator<T, R> project(Map<String, Object> m);  //field -> other field, field -> 0,1
 
-    public Aggregator<T, R> project(String... m);    //field:1
+    Aggregator<T, R> project(String... m);    //field:1
 
-    public Aggregator<T, R> project(BasicDBObject m);    //custom
+    Aggregator<T, R> match(Query<T> q);
 
-    public Aggregator<T, R> match(Query<T> q);
+    /**
+     * use matchSubQuery if you prepared som mid-result in your aggregation you need to do an additional match for
+     * Do not use it for the base query!
+     *
+     * @param q
+     * @return aggregator
+     */
+    @SuppressWarnings("unused")
+    Aggregator<T, R> matchSubQuery(Query<?> q);
 
-    public Aggregator<T, R> limit(int num);
+    Aggregator<T, R> limit(int num);
 
-    public Aggregator<T, R> skip(int num);
+    @SuppressWarnings("unused")
+    Aggregator<T, R> skip(int num);
 
-    public Aggregator<T, R> unwind(String listField);
+    @SuppressWarnings("unused")
+    Aggregator<T, R> unwind(String listField);
 
-    public Aggregator<T, R> sort(String... prefixed);
+    Aggregator<T, R> sort(String... prefixed);
 
-    public Aggregator<T, R> sort(Map<String, Integer> sort);
+    @SuppressWarnings("unused")
+    Aggregator<T, R> sort(Map<String, Integer> sort);
 
-    public Group<T, R> group(BasicDBObject id);
+    String getCollectionName();
 
-    public Group<T, R> group(Map<String, String> idSubObject);
+    @SuppressWarnings("unused")
+    void setCollectionName(String cn);
 
-    public Group<T, R> group(String id);
+    Group<T, R> group(Map<String, Object> id);
 
-    public List<DBObject> toAggregationList();
+    @SuppressWarnings("unused")
+    Group<T, R> groupSubObj(Map<String, String> idSubObject);
 
-    public void addOperator(DBObject o);
+    Group<T, R> group(String id);
 
-    public List<R> aggregate();
+    List<Map<String, Object>> toAggregationList();
 
-    public void aggregate(AsyncOperationCallback<R> callback);
+    void addOperator(Map<String, Object> o);
 
+    List<R> aggregate();
+
+    @SuppressWarnings("unused")
+    void aggregate(AsyncOperationCallback<R> callback);
+
+    boolean isExplain();
+
+    @SuppressWarnings("unused")
+    void setExplain(boolean explain);
+
+    boolean isUseDisk();
+
+    @SuppressWarnings("unused")
+    void setUseDisk(boolean useDisk);
 
 }

@@ -5,7 +5,8 @@ package de.caluga.morphium.annotations.caching;
  * Date: 11.03.13
  * Time: 11:07
  * <p/>
- * TODO: Add documentation here
+ * write access to entities marked with this annotation will take place buffered. That means, that the write does take
+ * place
  */
 
 import java.lang.annotation.Retention;
@@ -21,7 +22,7 @@ public @interface WriteBuffer {
      * what to do when max buffer entries is reached
      * WRITE_NEW: write newest entry (synchronous and not add to buffer)
      * WRITE_OLD: write some old entries (and remove from buffer)
-     * DEL_OLD: delete old entries from buffer
+     * DEL_OLD: remove old entries from buffer
      * IGNORE_NEW: just ignore incoming
      * JUST_WARN: increase buffer and warn about it
      */
@@ -32,6 +33,8 @@ public @interface WriteBuffer {
     STRATEGY strategy() default STRATEGY.JUST_WARN;
 
     boolean value() default true;
+
+    boolean ordered() default true;
 
     /**
      * max size of write Buffer entries,0 means unlimited. STRATEGY is meaningless then

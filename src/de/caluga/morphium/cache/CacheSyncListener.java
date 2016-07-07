@@ -15,9 +15,11 @@ public interface CacheSyncListener {
      * before clearing cache - if cls == null whole cache
      * Message m contains information about reason and stuff...
      */
-    public void preClear(Class cls, Msg m) throws CacheSyncVetoException;
+    @SuppressWarnings("UnusedParameters")
+    void preClear(Class cls, Msg m) throws CacheSyncVetoException;
 
-    public void postClear(Class cls, Msg m);
+    @SuppressWarnings("UnusedParameters")
+    void postClear(Class cls, Msg m);
 
     /**
      * Class is null for CLEAR ALL
@@ -26,7 +28,9 @@ public interface CacheSyncListener {
      * @param m   - message about to be send - add info if necessary!
      * @throws CacheSyncVetoException
      */
-    public void preSendClearMsg(Class cls, Msg m) throws CacheSyncVetoException;
+    @SuppressWarnings("UnusedParameters")
+    void preSendClearMsg(Class cls, Msg m) throws CacheSyncVetoException;
 
-    public void postSendClearMsg(Class cls, Msg m);
+    @SuppressWarnings("UnusedParameters")
+    void postSendClearMsg(Class cls, Msg m);
 }

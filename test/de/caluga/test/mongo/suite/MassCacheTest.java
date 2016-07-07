@@ -4,9 +4,12 @@
  */
 package de.caluga.test.mongo.suite;
 
-import de.caluga.morphium.MorphiumSingleton;
+import de.caluga.morphium.Logger;
+import de.caluga.morphium.ProfilingListener;
+import de.caluga.morphium.ReadAccessType;
+import de.caluga.morphium.WriteAccessType;
 import de.caluga.morphium.query.Query;
-import org.apache.log4j.Logger;
+import de.caluga.test.mongo.suite.data.CachedObject;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -18,27 +21,28 @@ import java.util.Map;
  */
 public class MassCacheTest extends MongoTest {
 
-    public static final int NO_OBJECTS = 200;
+    public static final int NO_OBJECTS = 100;
     public static final int WRITING_THREADS = 5;
     public static final int READING_THREADS = 5;
-    private static final Logger log = Logger.getLogger(MassCacheTest.class);
+    private static final Logger log = new Logger(MassCacheTest.class);
 
     @Test
     public void massiveParallelWritingTest() throws InterruptedException {
 
         log.info("\nMassive parallel writing - single creating objects");
         long start = System.currentTimeMillis();
-        ArrayList<Thread> thr = new ArrayList<Thread>();
+        ArrayList<Thread> thr = new ArrayList<>();
         for (int i = 0; i < WRITING_THREADS; i++) {
             Thread t = new Thread() {
 
+                @Override
                 public void run() {
                     for (int j = 0; j < NO_OBJECTS; j++) {
                         CachedObject o = new CachedObject();
                         o.setCounter(j + 1);
                         o.setValue(getName() + " " + j);
                         log.info("Storing...");
-                        MorphiumSingleton.get().store(o);
+                        morphium.store(o);
                         log.info("Stored object..." + getId() + " / " + getName());
                     }
                 }
@@ -69,14 +73,14 @@ public class MassCacheTest extends MongoTest {
         start = System.currentTimeMillis();
         for (int i = 0; i < WRITING_THREADS; i++) {
             for (int j = 0; j < NO_OBJECTS; j++) {
-//                CachedObject o = new CachedObject();
-//                o.setCounter(j + 1);
-//                o.setValue("Writing thread " + i + " " + j);
-                Query<CachedObject> q = MorphiumSingleton.get().createQueryFor(CachedObject.class);
+                //                CachedObject o = new CachedObject();
+                //                o.setCounter(j + 1);
+                //                o.setValue("Writing thread " + i + " " + j);
+                Query<CachedObject> q = morphium.createQueryFor(CachedObject.class);
                 q.f("counter").eq(j + 1).f("value").eq("Writing thread " + i + " " + j);
-                List<CachedObject> lst = MorphiumSingleton.get().find(q);
+                List<CachedObject> lst = morphium.find(q);
 
-                assert (lst != null && lst.size() > 0) : "List is null - Thread " + i + " Element " + (j + 1) + " not found";
+                assert (lst != null && !lst.isEmpty()) : "List is null - Thread " + i + " Element " + (j + 1) + " not found";
 
             }
             log.info(i + "" + "/" + WRITING_THREADS);
@@ -89,7 +93,7 @@ public class MassCacheTest extends MongoTest {
     }
 
     private void printStats() {
-        final Map<String, Double> statistics = MorphiumSingleton.get().getStatistics();
+        final Map<String, Double> statistics = morphium.getStatistics();
         for (String k : statistics.keySet()) {
             log.info(k + ": " + statistics.get(k));
         }
@@ -99,16 +103,17 @@ public class MassCacheTest extends MongoTest {
     public void massiveParallelAccessTest() {
         log.info("\nMassive parallel reading & writing - single creating objects");
         long start = System.currentTimeMillis();
-        ArrayList<Thread> thr = new ArrayList<Thread>();
+        ArrayList<Thread> thr = new ArrayList<>();
         for (int i = 0; i < WRITING_THREADS; i++) {
             Thread t = new Thread() {
 
+                @Override
                 public void run() {
                     for (int j = 0; j < NO_OBJECTS; j++) {
                         CachedObject o = new CachedObject();
                         o.setCounter(j + 1);
                         o.setValue(getName() + " " + j);
-                        MorphiumSingleton.get().store(o);
+                        morphium.store(o);
                     }
                 }
             };
@@ -120,12 +125,13 @@ public class MassCacheTest extends MongoTest {
         try {
             Thread.sleep(1000);
         } catch (InterruptedException ex) {
-            Logger.getLogger(MassCacheTest.class.getName()).fatal(ex);
+            new Logger(MassCacheTest.class.getName()).fatal(ex);
         }
 
         log.info("Creating reader threads (random read)...");
         for (int i = 0; i < READING_THREADS; i++) {
             Thread t = new Thread() {
+                @Override
                 public void run() {
                     for (int j = 0; j < NO_OBJECTS * 2; j++) {
                         int rnd = (int) (Math.random() * NO_OBJECTS);
@@ -133,15 +139,15 @@ public class MassCacheTest extends MongoTest {
                         CachedObject o = new CachedObject();
                         o.setCounter(rnd + 1);
                         o.setValue("Writing thread " + trnd + " " + rnd);
-                        Query<CachedObject> q = MorphiumSingleton.get().createQueryFor(CachedObject.class);
+                        Query<CachedObject> q = morphium.createQueryFor(CachedObject.class);
                         q.f("counter").eq(rnd + 1).f("value").eq("Writing thread " + trnd + " " + rnd);
-                        List<CachedObject> lst = MorphiumSingleton.get().find(q);
-                        if (lst == null || lst.size() == 0) {
+                        List<CachedObject> lst = morphium.find(q);
+                        if (lst == null || lst.isEmpty()) {
                             log.info("Not written yet: " + (rnd + 1) + " Thread: " + trnd);
                         } else {
                             o = lst.get(0);
                             o.setValue(o.getValue() + " altered by Thread " + getName());
-                            MorphiumSingleton.get().store(o);
+                            morphium.store(o);
                         }
                     }
                 }
@@ -170,26 +176,26 @@ public class MassCacheTest extends MongoTest {
 
     @Test
     public void disableCacheTest() {
-        MorphiumSingleton.get().getConfig().disableReadCache();
-        MorphiumSingleton.get().getConfig().disableBufferedWrites();
-        MorphiumSingleton.get().resetStatistics();
+        morphium.getConfig().disableReadCache();
+        morphium.getConfig().disableBufferedWrites();
+        morphium.resetStatistics();
         log.info("Preparing test data...");
         for (int j = 0; j < NO_OBJECTS; j++) {
             CachedObject o = new CachedObject();
             o.setCounter(j + 1);
             o.setValue("Test " + j);
-            MorphiumSingleton.get().store(o);
+            morphium.store(o);
         }
         waitForWrites();
         log.info("Done.");
 
         for (int j = 0; j < 3; j++) {
             for (int i = 0; i < NO_OBJECTS; i++) {
-                Query<CachedObject> q = MorphiumSingleton.get().createQueryFor(CachedObject.class);
+                Query<CachedObject> q = morphium.createQueryFor(CachedObject.class);
                 q.f("value").eq("Test " + i);
                 List<CachedObject> lst = q.asList();
                 assert (lst != null) : "List is NULL????";
-                assert (lst.size() > 0) : "Not found?!?!? Value: Test " + i;
+                assert (!lst.isEmpty()) : "Not found?!?!? Value: Test " + i;
                 assert (lst.get(0).getValue().equals("Test " + i)) : "Wrong value!";
                 log.info("found " + lst.size() + " elements for value: " + lst.get(0).getValue());
 
@@ -197,58 +203,81 @@ public class MassCacheTest extends MongoTest {
         }
         printStats();
 
-        Map<String, Double> statistics = MorphiumSingleton.get().getStatistics();
+        Map<String, Double> statistics = morphium.getStatistics();
         assert (statistics.get("CACHE_ENTRIES") == 0);
         assert (statistics.get("WRITES_CACHED") == 0);
-        MorphiumSingleton.get().getConfig().enableReadCache();
+        morphium.getConfig().enableReadCache();
         for (int j = 0; j < 3; j++) {
             for (int i = 0; i < NO_OBJECTS; i++) {
-                Query<CachedObject> q = MorphiumSingleton.get().createQueryFor(CachedObject.class);
+                Query<CachedObject> q = morphium.createQueryFor(CachedObject.class);
                 q.f("value").eq("Test " + i);
                 List<CachedObject> lst = q.asList();
                 assert (lst != null) : "List is NULL????";
-                assert (lst.size() > 0) : "Not found?!?!? Value: Test " + i;
+                assert (!lst.isEmpty()) : "Not found?!?!? Value: Test " + i;
                 assert (lst.get(0).getValue().equals("Test " + i)) : "Wrong value!";
                 log.info("found " + lst.size() + " elements for value: " + lst.get(0).getValue());
 
             }
         }
         printStats();
-        statistics = MorphiumSingleton.get().getStatistics();
+        statistics = morphium.getStatistics();
         assert (statistics.get("CACHE_ENTRIES") != 0);
         assert (statistics.get("CHITS") != 0);
-        MorphiumSingleton.get().getConfig().enableReadCache();
-        MorphiumSingleton.get().getConfig().enableBufferedWrites();
+        morphium.getConfig().enableReadCache();
+        morphium.getConfig().enableBufferedWrites();
     }
 
     @Test
-    public void cacheTest() {
+    public void cacheTest() throws Exception {
+        morphium.getCache().setValidCacheTime(CachedObject.class, 1000000);
         log.info("Preparing test data...");
         for (int j = 0; j < NO_OBJECTS; j++) {
             CachedObject o = new CachedObject();
             o.setCounter(j + 1);
             o.setValue("Test " + j);
-            MorphiumSingleton.get().store(o);
+            morphium.store(o);
         }
+        Thread.sleep(1200);
         waitForWrites();
+        Thread.sleep(25000);
         log.info("Done.");
+        ProfilingListener pl = new ProfilingListener() {
+            @Override
+            public void readAccess(Query query, long time, ReadAccessType t) {
+                log.info("Read Access...");
+                //Should never be called as cache hits won't trigger profiling
+            }
+
+            @Override
+            public void writeAccess(Class type, Object o, long time, boolean isNew, WriteAccessType t) {
+                log.info("Write access...");
+            }
+        };
 
         for (int j = 0; j < 3; j++) {
             for (int i = 0; i < NO_OBJECTS; i++) {
-                Query<CachedObject> q = MorphiumSingleton.get().createQueryFor(CachedObject.class);
+                Query<CachedObject> q = morphium.createQueryFor(CachedObject.class);
                 q.f("value").eq("Test " + i);
                 List<CachedObject> lst = q.asList();
                 assert (lst != null) : "List is NULL????";
-                assert (lst.size() > 0) : "Not found?!?!? Value: Test " + i;
+                assert (!lst.isEmpty()) : "Not found?!?!? Value: Test " + i;
                 assert (lst.get(0).getValue().equals("Test " + i)) : "Wrong value!";
                 log.info("found " + lst.size() + " elements for value: " + lst.get(0).getValue());
 
             }
+            morphium.removeProfilingListener(pl);
+            morphium.addProfilingListener(pl);
+
         }
+        morphium.removeProfilingListener(pl);
+
         printStats();
-        Map<String, Double> stats = MorphiumSingleton.get().getStatistics();
-        assert (stats.get("CACHE_ENTRIES") != 0);
-        assert (stats.get("CHITS") != 0);
+        Map<String, Double> stats = morphium.getStatistics();
+        assert (stats.get("CACHE_ENTRIES") >= 100);
+        assert (stats.get("CHITS") >= 200);
+        assert (stats.get("CHITSPERC") >= 40);
+        morphium.getCache().setDefaultCacheTime(CachedObject.class);
+        morphium.getCache().clearCachefor(CachedObject.class);
     }
 
 

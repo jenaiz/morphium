@@ -1,11 +1,13 @@
 package de.caluga.test.mongo.suite;
 
-import de.caluga.morphium.MorphiumSingleton;
 import de.caluga.morphium.async.AsyncOperationCallback;
 import de.caluga.morphium.async.AsyncOperationType;
 import de.caluga.morphium.query.Query;
+import de.caluga.test.mongo.suite.data.UncachedObject;
 import org.junit.Test;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,18 +21,18 @@ import java.util.List;
 public class WriteBufferCountTest extends MongoTest {
     @Test
     public void testWbCount() throws Exception {
-        List<UncachedObject> lst = new ArrayList<UncachedObject>();
+        List<UncachedObject> lst = new ArrayList<>();
         for (int i = 0; i < 10000; i++) {
             UncachedObject uc = new UncachedObject();
             uc.setCounter(1);
-            StringBuffer longText = new StringBuffer();
+            StringBuilder longText = new StringBuilder();
             for (int t = 0; t < 1000; t++) {
-                longText.append("-test-" + i);
+                longText.append("-test-").append(i);
             }
             lst.add(uc);
         }
 
-        MorphiumSingleton.get().store(lst, new AsyncOperationCallback<UncachedObject>() {
+        morphium.store(lst, new AsyncOperationCallback<UncachedObject>() {
             @Override
             public void onOperationSucceeded(AsyncOperationType type, Query<UncachedObject> q, long duration, List<UncachedObject> result, UncachedObject entity, Object... param) {
                 log.info("finished after " + duration);
@@ -42,19 +44,28 @@ public class WriteBufferCountTest extends MongoTest {
             }
         });
         waitForWriteProcessToBeScheduled();
-        int c = MorphiumSingleton.get().getWriteBufferCount();
+        int c = morphium.getWriteBufferCount();
         assert (c != 0);
     }
 
     private int waitForWriteProcessToBeScheduled() {
         int cnt = 0;
-        int c = MorphiumSingleton.get().getWriteBufferCount();
+        int c = morphium.getWriteBufferCount();
         while (c == 0) {
-            c = MorphiumSingleton.get().getWriteBufferCount();
+            c = morphium.getWriteBufferCount();
             ++cnt;
             Thread.yield();
             assert (cnt < 1000000);
         }
         return c;
+    }
+
+
+    @Test
+    public void threadNumberTest() throws Exception {
+        ThreadMXBean thbean = ManagementFactory.getThreadMXBean();
+        log.info("Running threads: " + thbean.getThreadCount());
+        assert (thbean.getThreadCount() < 1000);
+
     }
 }

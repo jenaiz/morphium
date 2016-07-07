@@ -1,17 +1,16 @@
 package de.caluga.test.mongo.suite;
 
-import com.mongodb.BasicDBList;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
-import de.caluga.morphium.MorphiumSingleton;
 import de.caluga.morphium.aggregation.Aggregator;
 import de.caluga.morphium.annotations.Embedded;
 import de.caluga.morphium.annotations.Property;
 import de.caluga.morphium.query.Query;
+import de.caluga.test.mongo.suite.data.UncachedObject;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * User: Stephan Bösebeck
@@ -24,24 +23,30 @@ public class Aggregation extends MongoTest {
     public void aggregatorTest() throws Exception {
         createUncachedObjects(1000);
 
-        Aggregator<UncachedObject, Aggregate> a = MorphiumSingleton.get().createAggregator(UncachedObject.class, Aggregate.class);
+        Aggregator<UncachedObject, Aggregate> a = morphium.createAggregator(UncachedObject.class, Aggregate.class);
         assert (a.getResultType() != null);
         //eingangsdaten reduzieren
         a = a.project("counter");
         //Filtern
-        a = a.match(MorphiumSingleton.get().createQueryFor(UncachedObject.class).f("counter").gt(100));
+        a = a.match(morphium.createQueryFor(UncachedObject.class).f("counter").gt(100));
         //Sortieren - für $first/$last
         a = a.sort("counter");
         //limit der Daten
         a = a.limit(15);
         //group by - in dem Fall ALL, könnte auch beliebig sein
         a = a.group("all").avg("schnitt", "$counter").sum("summe", "$counter").sum("anz", 1).last("letzter", "$counter").first("erster", "$counter").end();
-//        a = a.group("a2").avg("schnitt", "$counter").sum("summe", "$counter").sum("anz", 1).last("letzter", "$counter").first("erster", "$counter").end();
+        //        a = a.group("a2").avg("schnitt", "$counter").sum("summe", "$counter").sum("anz", 1).last("letzter", "$counter").first("erster", "$counter").end();
         //ergebnis projezieren
-        a = a.project(new BasicDBObject("summe", 1).append("anzahl", "$anz").append("schnitt", 1).append("last", "$letzter").append("first", "$erster"));
+        HashMap<String, Object> projection = new HashMap<>();
+        projection.put("summe", 1);
+        projection.put("anzahl", "$anz");
+        projection.put("schnitt", 1);
+        projection.put("last", "$letzter");
+        projection.put("first", "$erster");
+        a = a.project(projection);
 
-        List<DBObject> obj = a.toAggregationList();
-        for (DBObject o : obj) {
+        List<Map<String, Object>> obj = a.toAggregationList();
+        for (Map<String, Object> o : obj) {
             log.info("Object: " + o.toString());
         }
         List<Aggregate> lst = a.aggregate();
@@ -63,9 +68,9 @@ public class Aggregation extends MongoTest {
         createUncachedObjects(10000);
         log.info("done... starting");
         long start = System.currentTimeMillis();
-        Query<UncachedObject> q = MorphiumSingleton.get().createQueryFor(UncachedObject.class);
-        HashMap<Integer, Integer> sum = new HashMap<Integer, Integer>();
-        HashMap<Integer, Integer> anz = new HashMap<Integer, Integer>();
+        Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
+        HashMap<Integer, Integer> sum = new HashMap<>();
+        HashMap<Integer, Integer> anz = new HashMap<>();
         q = q.sort("counter");
 
         for (UncachedObject u : q.asList()) {
@@ -73,12 +78,12 @@ public class Aggregation extends MongoTest {
             if (sum.get(v) == null) {
                 sum.put(v, u.getCounter());
             } else {
-                sum.put(v, sum.get(v).intValue() + v);
+                sum.put(v, sum.get(v) + v);
             }
             if (anz.get(v) == null) {
                 anz.put(v, 1);
             } else {
-                anz.put(v, anz.get(v).intValue() + 1);
+                anz.put(v, anz.get(v) + 1);
             }
 
         }
@@ -94,15 +99,16 @@ public class Aggregation extends MongoTest {
 
         log.info("Starting test with Aggregation:");
         start = System.currentTimeMillis();
-        Aggregator<UncachedObject, Aggregate> a = MorphiumSingleton.get().createAggregator(UncachedObject.class, Aggregate.class);
+        Aggregator<UncachedObject, Aggregate> a = morphium.createAggregator(UncachedObject.class, Aggregate.class);
         assert (a.getResultType() != null);
-        BasicDBList params = new BasicDBList();
+        ArrayList<Object> params = new ArrayList<>();
         params.add("$counter");
         params.add(3);
-        BasicDBObject db = new BasicDBObject("$mod", params);
+        Map<String, Object> db = new HashMap<>();
+        db.put("$mod", params);
         a = a.sort("$counter");
         a = a.group(db).sum("summe", "$counter").sum("anzahl", 1).avg("schnitt", "$counter").end();
-        List<DBObject> obj = a.toAggregationList();
+        List<Map<String, Object>> obj = a.toAggregationList();
         List<Aggregate> lst = a.aggregate();
         assert (lst.size() == 3);
         for (Aggregate ag : lst) {

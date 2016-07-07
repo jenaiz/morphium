@@ -1,9 +1,8 @@
 package de.caluga.morphium.cache;
 
-import com.mongodb.DBObject;
+import de.caluga.morphium.AnnotationAndReflectionHelper;
 import de.caluga.morphium.query.Query;
 
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
@@ -12,38 +11,50 @@ import java.util.Map;
  * Date: 07.03.13
  * Time: 09:57
  * <p/>
- * TODO: Add documentation here
+ * Cache interface . you can set your own cache implementation to morphium if it implements this interface
  */
 public interface MorphiumCache {
-    public <T> void addToCache(String k, Class<? extends T> type, List<T> ret);
+    <T> void addToCache(String k, Class<? extends T> type, List<T> ret);
 
-    public String getCacheKey(DBObject qo, Map<String, Integer> sort, String collection, int skip, int limit);
+    String getCacheKey(Map<String, Object> qo, Map<String, Integer> sort, String collection, int skip, int limit);
 
-    public <T> List<T> getFromCache(Class<? extends T> type, String k);
+    <T> List<T> getFromCache(Class<? extends T> type, String k);
 
-    public Hashtable<Class<?>, Hashtable<String, CacheElement>> cloneCache();
+    Map<Class<?>, Map<String, CacheElement>> getCache();
 
-    public Hashtable<Class<?>, Hashtable<Object, Object>> cloneIdCache();
+    Map<Class<?>, Map<Object, Object>> getIdCache();
 
-    public void clearCachefor(Class<?> cls);
+    void clearCachefor(Class<?> cls);
 
-    public void setCache(Hashtable<Class<?>, Hashtable<String, CacheElement>> cache);
+    void setCache(Map<Class<?>, Map<String, CacheElement>> cache);
 
-    public void resetCache();
+    void resetCache();
 
-    public void removeEntryFromCache(Class cls, Object id);
+    void removeEntryFromCache(Class cls, Object id);
 
-    public void setIdCache(Hashtable<Class<?>, Hashtable<Object, Object>> c);
+    void setIdCache(Map<Class<?>, Map<Object, Object>> c);
 
-    public <T> T getFromIDCache(Class<? extends T> type, Object id);
+    <T> T getFromIDCache(Class<? extends T> type, Object id);
 
-    public String getCacheKey(Query q);
+    String getCacheKey(Query q);
 
-    public boolean isCached(Class<?> type, String k);
+    boolean isCached(Class<?> type, String k);
 
-    public void clearCacheIfNecessary(Class cls);
+    void clearCacheIfNecessary(Class cls);
 
-    public void addCacheListener(CacheListener cl);
+    void addCacheListener(CacheListener cl);
 
-    public void removeCacheListener(CacheListener cl);
+    void removeCacheListener(CacheListener cl);
+
+    boolean isListenerRegistered(CacheListener cl);
+
+    void setGlobalCacheTimeout(int tm);
+
+    void setAnnotationAndReflectionHelper(AnnotationAndReflectionHelper hlp);
+
+    void setHouskeepingIntervalPause(int p);
+
+    void setValidCacheTime(Class type, int time);
+
+    void setDefaultCacheTime(Class type);
 }

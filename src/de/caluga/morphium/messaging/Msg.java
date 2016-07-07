@@ -1,11 +1,11 @@
 package de.caluga.morphium.messaging;
 
+import de.caluga.morphium.Logger;
 import de.caluga.morphium.annotations.*;
 import de.caluga.morphium.annotations.caching.NoCache;
 import de.caluga.morphium.annotations.lifecycle.Lifecycle;
 import de.caluga.morphium.annotations.lifecycle.PreStore;
-import org.apache.log4j.Logger;
-import org.bson.types.ObjectId;
+import de.caluga.morphium.driver.bson.MorphiumId;
 
 import java.util.*;
 
@@ -19,37 +19,22 @@ import java.util.*;
  * Reads from any node, as this produces lots of reads! All Writes will block until <b>all nodes</b> have confirmed the
  * write!
  */
+@SuppressWarnings("WeakerAccess")
 @Entity
 @NoCache
 //timeout <0 - setting relative to replication lag
 //timeout == 0 - wait forever
-@WriteSafety(level = SafetyLevel.NORMAL, timeout = 0, waitForJournalCommit = false, waitForSync = false)
+@WriteSafety(level = SafetyLevel.NORMAL)
 @DefaultReadPreference(ReadPreferenceLevel.PRIMARY)
 @Lifecycle
 @Index({"sender,locked_by,processed_by,recipient,-timestamp", "locked_by,processed_by,recipient,timestamp"})
 public class Msg {
 
 
-    public static enum Fields {
-        processedBy,
-        lockedBy,
-        msgId,
-        locked,
-        type,
-        inAnswerTo,
-        msg,
-        additional,
-        value,
-        timestamp,
-        sender,
-        ttl,
-        recipient
-    }
-
     @Index
     private List<String> processedBy;
     @Id
-    private ObjectId msgId;
+    private MorphiumId msgId;
     @Index
     private String lockedBy;
     @Index
@@ -57,6 +42,7 @@ public class Msg {
     private MsgType type;
     private long ttl;
     private String sender;
+    private String senderHost;
     private String recipient;
     @Transient
     private List<String> to;
@@ -64,12 +50,11 @@ public class Msg {
     //payload goes here
     private String name;
     private String msg;
-    private List<String> additional;
+    private List<Object> additional;
     private Map<String, Object> mapValue;
     private String value;
     @Index
     private long timestamp;
-
     @Index(options = "expireAfterSeconds:0")
     private Date deleteAt;
     @Transient
@@ -94,6 +79,7 @@ public class Msg {
         this.ttl = ttl;
     }
 
+    @SuppressWarnings("unused")
     public boolean isExclusive() {
         if (exclusive == null) {
             return getLockedBy() != null && !getLockedBy().equals("ALL");
@@ -107,11 +93,15 @@ public class Msg {
      * @param exclusive
      */
     public void setExclusive(boolean exclusive) {
-        if (!exclusive) lockedBy = "ALL";
-        else lockedBy = null;
+        if (!exclusive) {
+            lockedBy = "ALL";
+        } else {
+            lockedBy = null;
+        }
         this.exclusive = exclusive;
     }
 
+    @SuppressWarnings("unused")
     public String getRecipient() {
         return recipient;
     }
@@ -120,9 +110,27 @@ public class Msg {
         this.recipient = recipient;
     }
 
+    @SuppressWarnings("unused")
+    public String getSenderHost() {
+        return senderHost;
+    }
+
+    public void setSenderHost(String senderHost) {
+        this.senderHost = senderHost;
+    }
+
+    @SuppressWarnings("unused")
+    public Date getDeleteAt() {
+        return deleteAt;
+    }
+
+    public void setDeleteAt(Date deleteAt) {
+        this.deleteAt = deleteAt;
+    }
+
     public void addRecipient(String id) {
         if (to == null) {
-            to = new ArrayList<String>();
+            to = new ArrayList<>();
 
         }
         if (!to.contains(id)) {
@@ -130,27 +138,30 @@ public class Msg {
         }
     }
 
+    @SuppressWarnings("unused")
     public void removeRecipient(String id) {
-        if (to == null) {
-            return;
+        if (to != null) {
 
-        } else {
             to.remove(id);
         }
     }
 
     public void addValue(String key, Object value) {
         if (mapValue == null) {
-            mapValue = new HashMap<String, Object>();
+            mapValue = new HashMap<>();
         }
         mapValue.put(key, value);
     }
 
+    @SuppressWarnings("unused")
     public void removeValue(String key) {
-        if (mapValue == null) return;
+        if (mapValue == null) {
+            return;
+        }
         mapValue.remove(key);
     }
 
+    @SuppressWarnings("unused")
     public Map<String, Object> getMapValue() {
         return mapValue;
     }
@@ -175,11 +186,11 @@ public class Msg {
         this.inAnswerTo = inAnswerTo;
     }
 
-    public ObjectId getMsgId() {
+    public MorphiumId getMsgId() {
         return msgId;
     }
 
-    public void setMsgId(ObjectId msgId) {
+    public void setMsgId(MorphiumId msgId) {
         this.msgId = msgId;
     }
 
@@ -209,7 +220,7 @@ public class Msg {
 
     public void addProcessedId(String id) {
         if (processedBy == null) {
-            processedBy = new ArrayList<String>();
+            processedBy = new ArrayList<>();
         }
         processedBy.add(id);
     }
@@ -222,6 +233,7 @@ public class Msg {
         this.lockedBy = lockedBy;
     }
 
+    @SuppressWarnings("unused")
     public long getLocked() {
         return locked;
     }
@@ -262,23 +274,26 @@ public class Msg {
         this.msg = msg;
     }
 
-    public List<String> getAdditional() {
+    public List<Object> getAdditional() {
         return additional;
     }
 
-    public void setAdditional(List<String> additional) {
+    public void setAdditional(List<Object> additional) {
         this.additional = additional;
     }
 
     public void addAdditional(String value) {
         if (additional == null) {
-            additional = new ArrayList<String>();
+            additional = new ArrayList<>();
         }
         additional.add(value);
     }
 
+    @SuppressWarnings("unused")
     public void removeAdditional(String value) {
-        if (additional == null) return;
+        if (additional == null) {
+            return;
+        }
         additional.remove(value);
     }
 
@@ -313,20 +328,21 @@ public class Msg {
                 '}';
     }
 
+    @SuppressWarnings("unused")
     @PreStore
     public void preStore() {
         if (sender == null) {
             throw new RuntimeException("Cannot send msg anonymously - set Sender first!");
         }
         if (type == null) {
-            Logger.getLogger(Msg.class).warn("Messagetype not set - using SINGLE");
+            new Logger(Msg.class).warn("Messagetype not set - using SINGLE");
             type = MsgType.SINGLE;
         }
         if (name == null) {
             throw new RuntimeException("Cannot send a message without name!");
         }
         if (ttl == 0) {
-            Logger.getLogger(Msg.class).warn("Defaulting msg ttl to 30sec");
+            new Logger(Msg.class).warn("Defaulting msg ttl to 30sec");
             ttl = 30000;
         }
         if (!exclusive) {
@@ -367,14 +383,26 @@ public class Msg {
         ret.setType(type);
         ret.setValue(value);
         ret.setMsg(msg);
-//        ret.setMsgId();
+        //        ret.setMsgId();
         ret.setMapValue(mapValue);
         ret.setTo(to);
 
         return ret;  //To change body of created methods use File | Settings | File Templates.
     }
 
-    public void setDeleteAt(Date deleteAt) {
-        this.deleteAt = deleteAt;
+    public enum Fields {
+        processedBy,
+        lockedBy,
+        msgId,
+        @SuppressWarnings("unused")locked,
+        @SuppressWarnings("unused")type,
+        @SuppressWarnings("unused")inAnswerTo,
+        @SuppressWarnings("unused")msg,
+        @SuppressWarnings("unused")additional,
+        @SuppressWarnings("unused")value,
+        timestamp,
+        sender,
+        @SuppressWarnings("unused")ttl,
+        recipient
     }
 }
