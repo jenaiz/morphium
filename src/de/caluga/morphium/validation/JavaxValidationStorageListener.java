@@ -1,11 +1,8 @@
 package de.caluga.morphium.validation;
 
-import de.caluga.morphium.AnnotationAndReflectionHelper;
-import de.caluga.morphium.Morphium;
-import de.caluga.morphium.MorphiumStorageAdapter;
+import de.caluga.morphium.*;
 import de.caluga.morphium.annotations.Embedded;
 import de.caluga.morphium.annotations.Entity;
-import org.apache.log4j.Logger;
 
 import javax.validation.*;
 import java.lang.reflect.Field;
@@ -18,16 +15,26 @@ import java.util.*;
 @SuppressWarnings({"ConstantConditions", "unchecked"})
 public class JavaxValidationStorageListener extends MorphiumStorageAdapter<Object> {
 
-    private Validator validator;
+    private final Validator validator;
 
     public JavaxValidationStorageListener() {
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         validator = factory.getValidator();
     }
 
+
+    @Override
+    public void preStore(Morphium m, Map<Object, Boolean> isNew) throws MorphiumAccessVetoException {
+        for (Object b : isNew.keySet()) {
+            preStore(m, b, isNew.get(b));
+        }
+    }
+
     @Override
     public void preStore(Morphium m, Object r, boolean isNew) {
-        if (r == null) return;
+        if (r == null) {
+            return;
+        }
         AnnotationAndReflectionHelper annotationHelper = m.getARHelper();
         if (!annotationHelper.isAnnotationPresentInHierarchy(r.getClass(), Entity.class) && !annotationHelper.isAnnotationPresentInHierarchy(r.getClass(), Embedded.class)) {
             return;
@@ -40,31 +47,29 @@ public class JavaxValidationStorageListener extends MorphiumStorageAdapter<Objec
                     annotationHelper.isAnnotationPresentInHierarchy(field.getType(), Entity.class)) {
                 //also check it
                 try {
-                    if (field.get(r) == null) continue;
+                    if (field.get(r) == null) {
+                        continue;
+                    }
                     Set<ConstraintViolation<Object>> v = validator.validate(field.get(r));
                     violations.addAll(v);
                 } catch (IllegalAccessException e) {
-                    Logger.getLogger(JavaxValidationStorageListener.class).error("Could not access Field: " + f);
+                    new Logger(JavaxValidationStorageListener.class).error("Could not access Field: " + f);
                 }
             } else if (Collection.class.isAssignableFrom(field.getType())) {
                 //list handling
                 try {
                     Collection<Object> lst = (List<Object>) field.get(r);
                     if (lst != null) {
+                        Map<Object, Boolean> map = new HashMap<>();
                         for (Object o : lst) {
-                            try {
-                                preStore(m, o, isNew);
-                            } catch (ConstraintViolationException e) {
-                                Set<ConstraintViolation<?>> constraintViolations = e.getConstraintViolations();
-                                for (ConstraintViolation v : constraintViolations) {
-                                    violations.add(v);
-                                }
-                            }
+                            map.put(o, isNew);
                         }
+                        validatePrestor(m, violations, map);
+
                     }
 
                 } catch (IllegalAccessException e) {
-                    Logger.getLogger(JavaxValidationStorageListener.class).error("Could not access list field: " + f);
+                    new Logger(JavaxValidationStorageListener.class).error("Could not access list field: " + f);
                 }
             } else if (Map.class.isAssignableFrom(field.getType())) {
                 //usually only strings are allowed as keys - especially no embedded or entitiy types
@@ -72,25 +77,32 @@ public class JavaxValidationStorageListener extends MorphiumStorageAdapter<Objec
                 try {
                     Map map = (Map) field.get(r);
                     if (map != null) {
+                        Map<Object, Boolean> lst = new HashMap<>();
                         for (Object val : map.values()) {
-                            try {
-                                preStore(m, val, isNew);
-                            } catch (ConstraintViolationException e) {
-                                Set<ConstraintViolation<?>> constraintViolations = e.getConstraintViolations();
-                                for (ConstraintViolation v : constraintViolations) {
-                                    violations.add(v);
-                                }
-                            }
+                            lst.put(val, isNew);
                         }
+                        validatePrestor(m, violations, lst);
                     }
+
                 } catch (IllegalAccessException e) {
                     throw new RuntimeException(e);
                 }
             }
         }
 
-        if (violations.size() > 0) {
-            throw new ConstraintViolationException(new HashSet<ConstraintViolation<?>>(violations));
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(new HashSet<>(violations));
+        }
+    }
+
+    private void validatePrestor(Morphium m, Set<ConstraintViolation<Object>> violations, Map<Object, Boolean> map) {
+        try {
+            preStore(m, map);
+        } catch (ConstraintViolationException e) {
+            Set<ConstraintViolation<?>> constraintViolations = e.getConstraintViolations();
+            //ADDall not possible due to generics mess
+            //noinspection Convert2streamapi
+            for (ConstraintViolation v : constraintViolations) violations.add(v);
         }
     }
 

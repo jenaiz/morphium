@@ -22,8 +22,10 @@ Morphium is a POJO Object mapper for Accessing Mongodb. Some of the main Feature
 - nearly every aspect of Morphium can be replaced by own implementation (e.g. Query-Object, CacheImplementation...)
 - ConfigManager helps storing app configurations in Mongo with efficient access to it (cached)
 - Support for References, including lazy loaded references
-- Support for partial updated objects (when writing, only the changes of the object are transferred)
+- Support for partial updated objects (when writing, only the changes of the object are transferred) 
+- Almost any operation morphium provides is async capable. That means, if you pass it an `AsyncOperaionListener` as argument, you won't get a batch now, but after the async operation finished via the callback
 
+for questions and feature requests / bug reports also have a look at the google group morphium-discuss@googlegroups.com
 
 
 Quick Start
@@ -44,10 +46,25 @@ After that, you just need to instantiate Morphium:
   Morphium m=new Morphium(cfg);
 ```
 
+There are some convenience constructors available since V2.2.23 which make your life a bit easier:
+
+```
+   Morphium m=new Morphium("localhost","test-db");
+```
+
+this creates a morphium instance with most default settings, connecting to localhost, standard port 27017 and using database `test-db`
+
+if necessary, it's of course possible to specify the port to connect to:
+
+```
+  Morphium m=new Morphium("localhost:27019","test-db");
+  Morphium n=new Morphium("localhost",27020,"test-db");
+```
+
 then you are good to go:
 
 ```java
-  Query<MyEntity> q=m.createQueryFor(MyEntity.class).f("a_field").eq("a value");
+  Query<MyEntity> q=m.createQueryFor(MyEntity.class).f("a_field").eq("a id");
   List<MyEntity> lst=q.asList();
   MyEntity ent=q.get();
   ...
@@ -85,10 +102,10 @@ You can also use Maps, Lists or Arrays, all may also include other Entities or E
 ## Use enum instead of strings for queries
 As using strings to query your object might be a bit error prone, you also can use enums instead of field name strings:
 ```java
-   Query<MyEntity> q=m.createQueryFor(MyEntity.class).f(MyEntity.Fields.aField).eq("a value");
+   Query<MyEntity> q=m.createQueryFor(MyEntity.class).f(MyEntity.Fields.aField).eq("a id");
 ```
 of course, these enums need to be created. have a look at https://github.com/sboesebeck/intelliJGenPropertyEnumsPlugin for a plugin for generating those automatically
-in our example, the result would look like this:
+in our example, the batch would look like this:
 ```java
   @Entity(translateCamelCase = true)
   @Cache

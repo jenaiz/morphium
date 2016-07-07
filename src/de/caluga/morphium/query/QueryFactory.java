@@ -12,13 +12,16 @@ import java.util.concurrent.ThreadPoolExecutor;
  * crate query for a certain type
  */
 public interface QueryFactory {
-    public <T> Query<T> createQuery(Morphium m, Class<? extends T> type);
+    <T> Query<T> createQuery(Morphium m, Class<? extends T> type);
 
-    public Class<? extends Query> getQueryImpl();
+    @SuppressWarnings("unused")
+    Class<? extends Query> getQueryImpl();
 
-    public void setQueryImpl(Class<? extends Query> queryImpl);
+    void setQueryImpl(Class<? extends Query> queryImpl);
 
+    @SuppressWarnings("unused")
     void setExecutor(ThreadPoolExecutor ex);
 
-    ThreadPoolExecutor getExecutor();
+    @SuppressWarnings({"unused", "UnusedParameters"})
+    ThreadPoolExecutor getExecutor(Morphium m);
 }

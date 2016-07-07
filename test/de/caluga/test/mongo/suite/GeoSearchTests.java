@@ -1,11 +1,10 @@
 package de.caluga.test.mongo.suite;
 
-import de.caluga.morphium.MorphiumSingleton;
 import de.caluga.morphium.annotations.*;
 import de.caluga.morphium.annotations.caching.NoCache;
 import de.caluga.morphium.annotations.caching.WriteBuffer;
+import de.caluga.morphium.driver.bson.MorphiumId;
 import de.caluga.morphium.query.Query;
-import org.bson.types.ObjectId;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -21,21 +20,21 @@ public class GeoSearchTests extends MongoTest {
 
     @Test
     public void nearTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(Place.class);
-        ArrayList<Place> toStore = new ArrayList<Place>();
-//        MorphiumSingleton.get().ensureIndicesFor(Place.class);
+        morphium.dropCollection(Place.class);
+        ArrayList<Place> toStore = new ArrayList<>();
+        //        morphium.ensureIndicesFor(Place.class);
         for (int i = 0; i < 1000; i++) {
             Place p = new Place();
-            List<Double> pos = new ArrayList<Double>();
+            List<Double> pos = new ArrayList<>();
             pos.add((Math.random() * 180) - 90);
             pos.add((Math.random() * 180) - 90);
             p.setName("P" + i);
             p.setPosition(pos);
             toStore.add(p);
         }
-        MorphiumSingleton.get().storeList(toStore);
+        morphium.storeList(toStore);
 
-        Query<Place> q = MorphiumSingleton.get().createQueryFor(Place.class).f("position").near(0, 0, 10);
+        Query<Place> q = morphium.createQueryFor(Place.class).f("position").near(0, 0, 10);
         long cnt = q.countAll();
         log.info("Found " + cnt + " places around 0,0 (10)");
         List<Place> lst = q.asList();
@@ -46,21 +45,21 @@ public class GeoSearchTests extends MongoTest {
 
     @Test
     public void nearSphereTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(Place.class);
-        ArrayList<Place> toStore = new ArrayList<Place>();
-//        MorphiumSingleton.get().ensureIndicesFor(Place.class);
+        morphium.dropCollection(Place.class);
+        ArrayList<Place> toStore = new ArrayList<>();
+        //        morphium.ensureIndicesFor(Place.class);
         for (int i = 0; i < 1000; i++) {
             Place p = new Place();
-            List<Double> pos = new ArrayList<Double>();
+            List<Double> pos = new ArrayList<>();
             pos.add((Math.random() * 6) - 3);
             pos.add((Math.random() * 6) - 3);
             p.setName("P" + i);
             p.setPosition(pos);
             toStore.add(p);
         }
-        MorphiumSingleton.get().storeList(toStore);
+        morphium.storeList(toStore);
 
-        Query<Place> q = MorphiumSingleton.get().createQueryFor(Place.class).f("position").nearSphere(0, 0);
+        Query<Place> q = morphium.createQueryFor(Place.class).f("position").nearSphere(0, 0);
         long cnt = q.countAll();
         log.info("Found " + cnt + " places around 0,0 ");
         List<Place> lst = q.asList();
@@ -71,21 +70,21 @@ public class GeoSearchTests extends MongoTest {
 
     @Test
     public void boxTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(Place.class);
-        ArrayList<Place> toStore = new ArrayList<Place>();
-//        MorphiumSingleton.get().ensureIndicesFor(Place.class);
+        morphium.dropCollection(Place.class);
+        ArrayList<Place> toStore = new ArrayList<>();
+        //        morphium.ensureIndicesFor(Place.class);
         for (int i = 0; i < 1000; i++) {
             Place p = new Place();
-            List<Double> pos = new ArrayList<Double>();
+            List<Double> pos = new ArrayList<>();
             pos.add((Math.random() * 180) - 90);
             pos.add((Math.random() * 180) - 90);
             p.setName("P" + i);
             p.setPosition(pos);
             toStore.add(p);
         }
-        MorphiumSingleton.get().storeList(toStore);
+        morphium.storeList(toStore);
 
-        Query<Place> q = MorphiumSingleton.get().createQueryFor(Place.class).f("position").box(0, 0, 10, 10);
+        Query<Place> q = morphium.createQueryFor(Place.class).f("position").box(0, 0, 10, 10);
         log.info("Query: " + q.toQueryObject().toString());
         long cnt = q.countAll();
         log.info("Found " + cnt + " places around 0,0 -> (10,10)");
@@ -97,21 +96,21 @@ public class GeoSearchTests extends MongoTest {
 
     @Test
     public void centerSphereTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(Place.class);
-        ArrayList<Place> toStore = new ArrayList<Place>();
-//        MorphiumSingleton.get().ensureIndicesFor(Place.class);
+        morphium.dropCollection(Place.class);
+        ArrayList<Place> toStore = new ArrayList<>();
+        //        morphium.ensureIndicesFor(Place.class);
         for (int i = 0; i < 1000; i++) {
             Place p = new Place();
-            List<Double> pos = new ArrayList<Double>();
+            List<Double> pos = new ArrayList<>();
             pos.add((Math.random() * Math.PI) - Math.PI / 2);
             pos.add((Math.random() * Math.PI) - Math.PI / 2);
             p.setName("P" + i);
             p.setPosition(pos);
             toStore.add(p);
         }
-        MorphiumSingleton.get().storeList(toStore);
+        morphium.storeList(toStore);
 
-        Query<Place> q = MorphiumSingleton.get().createQueryFor(Place.class).f("position").centerSphere(0, 0, 0.01);
+        Query<Place> q = morphium.createQueryFor(Place.class).f("position").centerSphere(0, 0, 0.01);
         log.info("Query: " + q.toQueryObject().toString());
         long cnt = q.countAll();
         log.info("Found " + cnt + " places around 0,0 -> 0.01 rad");
@@ -123,21 +122,21 @@ public class GeoSearchTests extends MongoTest {
 
     @Test
     public void polygonTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(Place.class);
-        ArrayList<Place> toStore = new ArrayList<Place>();
-//        MorphiumSingleton.get().ensureIndicesFor(Place.class);
+        morphium.dropCollection(Place.class);
+        ArrayList<Place> toStore = new ArrayList<>();
+        //        morphium.ensureIndicesFor(Place.class);
         for (int i = 0; i < 1000; i++) {
             Place p = new Place();
-            List<Double> pos = new ArrayList<Double>();
+            List<Double> pos = new ArrayList<>();
             pos.add((Math.random() * 180) - 90);
             pos.add((Math.random() * 180) - 90);
             p.setName("P" + i);
             p.setPosition(pos);
             toStore.add(p);
         }
-        MorphiumSingleton.get().storeList(toStore);
+        morphium.storeList(toStore);
 
-        Query<Place> q = MorphiumSingleton.get().createQueryFor(Place.class).f("position").polygon(0, 0, 0, 10, 10, 80, 80, 0);
+        Query<Place> q = morphium.createQueryFor(Place.class).f("position").polygon(0, 0, 0, 10, 10, 80, 80, 0);
         log.info("Query: " + q.toQueryObject().toString());
         long cnt = q.countAll();
         log.info("Found " + cnt + " places around 0,0 -> (10,10)");
@@ -149,21 +148,21 @@ public class GeoSearchTests extends MongoTest {
 
     @Test
     public void centerTest() throws Exception {
-        MorphiumSingleton.get().dropCollection(Place.class);
-        ArrayList<Place> toStore = new ArrayList<Place>();
-//        MorphiumSingleton.get().ensureIndicesFor(Place.class);
+        morphium.dropCollection(Place.class);
+        ArrayList<Place> toStore = new ArrayList<>();
+        //        morphium.ensureIndicesFor(Place.class);
         for (int i = 0; i < 1000; i++) {
             Place p = new Place();
-            List<Double> pos = new ArrayList<Double>();
+            List<Double> pos = new ArrayList<>();
             pos.add((Math.random() * 180) - 90);
             pos.add((Math.random() * 180) - 90);
             p.setName("P" + i);
             p.setPosition(pos);
             toStore.add(p);
         }
-        MorphiumSingleton.get().storeList(toStore);
+        morphium.storeList(toStore);
 
-        Query<Place> q = MorphiumSingleton.get().createQueryFor(Place.class).f("position").center(0, 0, 10);
+        Query<Place> q = morphium.createQueryFor(Place.class).f("position").center(0, 0, 10);
         log.info("Query: " + q.toQueryObject().toString());
         long cnt = q.countAll();
         log.info("Found " + cnt + " places around 0,0 -> 10");
@@ -180,17 +179,16 @@ public class GeoSearchTests extends MongoTest {
     @DefaultReadPreference(ReadPreferenceLevel.PRIMARY)
     @Entity
     public static class Place {
-        @Id
-        private ObjectId id;
-
         public List<Double> position;
         public String name;
+        @Id
+        private MorphiumId id;
 
-        public ObjectId getId() {
+        public MorphiumId getId() {
             return id;
         }
 
-        public void setId(ObjectId id) {
+        public void setId(MorphiumId id) {
             this.id = id;
         }
 

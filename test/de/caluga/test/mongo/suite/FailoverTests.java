@@ -1,10 +1,10 @@
 package de.caluga.test.mongo.suite;
 
+import de.caluga.morphium.Logger;
 import de.caluga.morphium.Morphium;
-import de.caluga.morphium.MorphiumSingleton;
 import de.caluga.morphium.annotations.Embedded;
 import de.caluga.morphium.query.Query;
-import org.apache.log4j.Logger;
+import de.caluga.test.mongo.suite.data.UncachedObject;
 import org.junit.Test;
 
 import javax.swing.*;
@@ -16,7 +16,7 @@ import javax.swing.*;
  * <p/>
  */
 public class FailoverTests extends MongoTest {
-    private static Logger log = Logger.getLogger(FailoverTests.class);
+    private static Logger log = new Logger(FailoverTests.class);
     private static int writeError = 0;
     private static int readError = 0;
     private static int writes = 0;
@@ -29,71 +29,106 @@ public class FailoverTests extends MongoTest {
             log.info("Not running Failover test here");
             return;
         }
-        Morphium morphium = MorphiumSingleton.get();
+        int readers = 150;
+        int writers = 100;
+
+
         morphium.clearCollection(UncachedObject.class);
 
         //Writer-Thread
-        WriterThread wt = new WriterThread(morphium);
-        wt.start();
+
+        //create a couple of writers
+        for (int i = 0; i < writers; i++) {
+            WriterThread wt = new WriterThread(morphium);
+            wt.start();
+        }
         Thread.sleep(1000); //let him write something
         new Thread() {
+            @Override
             public void run() {
                 JOptionPane.showMessageDialog(null, "Stop");
                 read = false;
             }
         }.start();
-        while (read) {
-            try {
-                Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
-                q.f("counter").lt(10000);
-                long cnt = q.countAll();
-                log.info("reading..." + cnt);
-                assert (cnt > 0);
-                log.info("Write Errors now: " + writeError);
-                Thread.sleep(1000);
-            } catch (Exception e) {
-                log.error("Error during read", e);
-                readError++;
-            }
+
+        //create more readers
+
+        for (int i = 0; i < readers; i++) {
+            new Thread() {
+                @Override
+                public void run() {
+                    while (read) {
+                        try {
+                            Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
+                            long cnt = q.asList().size();
+                            //                            log.info("reading..." + cnt);
+                            assert (cnt > 0);
+                            Thread.sleep((long) (1000 * Math.random() + 100));
+                        } catch (Exception e) {
+                            log.error("Error during read", e);
+                            readError++;
+                        }
+                    }
+                }
+            }.start();
         }
-        wt.setRunning(false);
-        Thread.sleep(1000);
+
+        new Thread() {
+            @Override
+            public void run() {
+                while (read) {
+                    Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
+                    //        q.f("counter").lt(10000);
+                    long cnt = q.countAll();
+                    log.info("Last count       : " + cnt);
+                    log.info("Number of writes : " + writes);
+                    log.info("Write errors     : " + writeError);
+                    log.info("Read errors      : " + readError);
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException e) {
+                    }
+                }
+            }
+        }.start();
+
+        while (read) {
+            Thread.sleep(1000);
+        }
+
         Query<UncachedObject> q = morphium.createQueryFor(UncachedObject.class);
-        q.f("counter").lt(10000);
+        //        q.f("counter").lt(10000);
         long cnt = q.countAll();
         log.info("Last count       : " + cnt);
         log.info("Number of writes : " + writes);
         log.info("Write errors     : " + writeError);
         log.info("Read errors      : " + readError);
-//        assert(cnt==writes):"Writes wrong: "+writes+" vs count: "+cnt;
-//        assert(writeError<5):"Write errors: "+writeError;
+        //        assert(cnt==writes):"Writes wrong: "+writes+" vs count: "+cnt;
+        //        assert(writeError<5):"Write errors: "+writeError;
         log.info("Done test");
     }
 
 
     @Embedded
     public class WriterThread extends Thread {
-        private boolean running = true;
-        private int i = 0;
+        private int i = (int) (Math.random() * 10000);
         private Morphium morphium;
 
         public WriterThread(Morphium m) {
             morphium = m;
         }
 
-        public void setRunning(boolean running) {
-            this.running = running;
-        }
 
+        @Override
         public void run() {
-            while (running) {
+            while (read) {
                 try {
                     UncachedObject o = new UncachedObject();
                     o.setValue("Value " + System.currentTimeMillis());
                     o.setCounter(i++);
                     writes++;
                     morphium.store(o);
-                    log.info("Wrote. " + writes);
+                    //                    log.info("Wrote. " + writes);
 
                 } catch (Exception e) {
                     log.error("Error during storage", e);
@@ -101,7 +136,7 @@ public class FailoverTests extends MongoTest {
                 }
 
                 try {
-                    sleep(200);
+                    sleep((long) (200 + Math.random() * 500));
                 } catch (InterruptedException e) {
 
                 }

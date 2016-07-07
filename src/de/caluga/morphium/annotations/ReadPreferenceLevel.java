@@ -1,6 +1,7 @@
 package de.caluga.morphium.annotations;
 
-import com.mongodb.ReadPreference;
+
+import de.caluga.morphium.driver.ReadPreference;
 
 /**
  * User: Stephan Bösebeck
@@ -16,7 +17,7 @@ public enum ReadPreferenceLevel {
     NEAREST(ReadPreference.nearest());
     private ReadPreference pref;
 
-    private ReadPreferenceLevel(ReadPreference pref) {
+    ReadPreferenceLevel(ReadPreference pref) {
         this.pref = pref;
     }
 

@@ -2,9 +2,7 @@ package de.caluga.morphium.query;
 
 import de.caluga.morphium.Morphium;
 
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  * User: Stephan Bösebeck
@@ -15,14 +13,10 @@ import java.util.concurrent.TimeUnit;
  */
 public class QueryFactoryImpl implements QueryFactory {
     private Class<? extends Query> queryImpl;
-    ThreadPoolExecutor executor = null;
+    private ThreadPoolExecutor executor = null;
 
+    @SuppressWarnings("unused")
     public QueryFactoryImpl() {
-    }
-
-    @Override
-    public void setExecutor(ThreadPoolExecutor ex) {
-        executor = ex;
     }
 
     public QueryFactoryImpl(Class<? extends Query> qi) {
@@ -30,12 +24,12 @@ public class QueryFactoryImpl implements QueryFactory {
     }
 
     @Override
-    public ThreadPoolExecutor getExecutor() {
-        if (executor == null) {
-            executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-                    60L, TimeUnit.SECONDS,
-                    new SynchronousQueue<Runnable>());
-        }
+    public void setExecutor(ThreadPoolExecutor ex) {
+        executor = ex;
+    }
+
+    @Override
+    public ThreadPoolExecutor getExecutor(Morphium m) {
         return executor;
     }
 
@@ -55,12 +49,9 @@ public class QueryFactoryImpl implements QueryFactory {
             Query<T> q = queryImpl.newInstance();
             q.setMorphium(m);
             q.setType(type);
-            q.setExecutor(getExecutor());
-
+            q.setExecutor(m.getAsyncOperationsThreadPool());
             return q;
-        } catch (InstantiationException e) {
-            throw new RuntimeException(e);
-        } catch (IllegalAccessException e) {
+        } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
 

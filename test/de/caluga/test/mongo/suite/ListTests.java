@@ -1,9 +1,13 @@
 package de.caluga.test.mongo.suite;
 
-import de.caluga.morphium.MorphiumSingleton;
 import de.caluga.morphium.annotations.ReadPreferenceLevel;
 import de.caluga.morphium.query.Query;
+import de.caluga.test.mongo.suite.data.EmbeddedObject;
+import de.caluga.test.mongo.suite.data.UncachedObject;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * User: Stephan Bösebeck
@@ -11,6 +15,7 @@ import org.junit.Test;
  * Time: 17:17
  * <p/>
  */
+@SuppressWarnings("AssertWithSideEffects")
 public class ListTests extends MongoTest {
 
     @Test
@@ -42,9 +47,9 @@ public class ListTests extends MongoTest {
             lst.addString("Value " + i);
         }
 
-        MorphiumSingleton.get().store(lst);
+        morphium.store(lst);
 
-        Query<ListContainer> q = MorphiumSingleton.get().createQueryFor(ListContainer.class).f("id").eq(lst.getId());
+        Query<ListContainer> q = morphium.createQueryFor(ListContainer.class).f("id").eq(lst.getId());
         q.setReadPreferenceLevel(ReadPreferenceLevel.PRIMARY);
         ListContainer lst2 = q.get();
         assert (lst2 != null) : "Error - not found?";
@@ -61,6 +66,15 @@ public class ListTests extends MongoTest {
             assert (lst2.getStringList().get(i).equals(lst.getStringList().get(i))) : "string list differ? - " + i;
             assert (lst2.getRefList().get(i).equals(lst.getRefList().get(i))) : "reference list differ? - " + i;
         }
+
+        Thread.sleep(1000);
+        q = morphium.createQueryFor(ListContainer.class).f("refList").eq(lst2.getRefList().get(0));
+        assert (q.countAll() != 0);
+        log.info("found " + q.countAll() + " entries");
+        assert (q.countAll() == 1);
+        ListContainer c = q.get();
+        assert (c.getId().equals(lst2.getId()));
+
 
     }
 
@@ -97,9 +111,9 @@ public class ListTests extends MongoTest {
         }
         lst.addString(null);
 
-        MorphiumSingleton.get().store(lst);
+        morphium.store(lst);
 
-        Query q = MorphiumSingleton.get().createQueryFor(ListContainer.class).f("id").eq(lst.getId());
+        Query q = morphium.createQueryFor(ListContainer.class).f("id").eq(lst.getId());
         q.setReadPreferenceLevel(ReadPreferenceLevel.PRIMARY);
         ListContainer lst2 = (ListContainer) q.get();
         assert (lst2.getStringList().get(count) == null);
@@ -107,4 +121,27 @@ public class ListTests extends MongoTest {
         assert (lst2.getEmbeddedObjectList().get(count) == null);
 
     }
+
+
+    @Test
+    public void singleEntryListTest() throws Exception {
+        morphium.dropCollection(UncachedObject.class);
+        List<UncachedObject> lst = new ArrayList<>();
+        lst.add(new UncachedObject());
+
+        lst.get(0).setValue("hello");
+        lst.get(0).setCounter(1);
+
+        morphium.storeList(lst);
+
+        assert (lst.get(0).getMorphiumId() != null);
+
+        lst.get(0).setCounter(999);
+
+        morphium.storeList(lst);
+
+        assert (morphium.createQueryFor(UncachedObject.class).asList().get(0).getCounter() == 999);
+
+    }
+
 }

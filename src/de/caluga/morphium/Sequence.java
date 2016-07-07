@@ -2,7 +2,7 @@ package de.caluga.morphium;
 
 import de.caluga.morphium.annotations.*;
 import de.caluga.morphium.annotations.caching.NoCache;
-import org.bson.types.ObjectId;
+import de.caluga.morphium.driver.bson.MorphiumId;
 
 
 /**
@@ -22,7 +22,7 @@ import org.bson.types.ObjectId;
 @DefaultReadPreference(ReadPreferenceLevel.PRIMARY)
 public class Sequence {
     @Id
-    private ObjectId id;
+    private MorphiumId id;
     @Index
     private String name;
     private Long currentValue;
@@ -35,10 +35,12 @@ public class Sequence {
         return lockedAt;
     }
 
+    @SuppressWarnings("unused")
     public void setLockedAt(long lockedAt) {
         this.lockedAt = lockedAt;
     }
 
+    @SuppressWarnings("unused")
     public String getName() {
         return name;
     }
@@ -55,6 +57,7 @@ public class Sequence {
         this.currentValue = currentValue;
     }
 
+    @SuppressWarnings("unused")
     public String getLockedBy() {
         return lockedBy;
     }
@@ -63,11 +66,12 @@ public class Sequence {
         this.lockedBy = lockedBy;
     }
 
-    public Object getId() {
+    @SuppressWarnings("unused")
+    public MorphiumId getId() {
         return id;
     }
 
-    public void setId(ObjectId id) {
+    public void setId(MorphiumId id) {
         this.id = id;
     }
 

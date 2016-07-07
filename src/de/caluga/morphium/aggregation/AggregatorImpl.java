@@ -1,17 +1,12 @@
 package de.caluga.morphium.aggregation;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
-import de.caluga.morphium.AnnotationAndReflectionHelper;
 import de.caluga.morphium.Morphium;
+import de.caluga.morphium.Utils;
 import de.caluga.morphium.async.AsyncOperationCallback;
 import de.caluga.morphium.async.AsyncOperationType;
 import de.caluga.morphium.query.Query;
 
 import java.util.*;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  * User: Stephan Bösebeck
@@ -20,24 +15,32 @@ import java.util.concurrent.TimeUnit;
  * <p/>
  */
 public class AggregatorImpl<T, R> implements Aggregator<T, R> {
+    private final List<Map<String, Object>> params = new ArrayList<>();
     private Class<? extends T> type;
-    private List<DBObject> params = new ArrayList<DBObject>();
     private Morphium morphium;
     private Class<? extends R> rType;
-    private AnnotationAndReflectionHelper ah = new AnnotationAndReflectionHelper();
-    private ThreadPoolExecutor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-            60L, TimeUnit.SECONDS,
-            new SynchronousQueue<Runnable>());
+    private String collectionName;
+    private boolean useDisk = false;
+    private boolean explain = false;
 
     @Override
-    public void setMorphium(Morphium m) {
-        morphium = m;
-        if (m != null) {
-            ah = m.getARHelper();
-            executor.setMaximumPoolSize((int) (m.getConfig().getMaxConnections() * 0.75));
-        } else {
-            ah = new AnnotationAndReflectionHelper();
-        }
+    public boolean isUseDisk() {
+        return useDisk;
+    }
+
+    @Override
+    public void setUseDisk(boolean useDisk) {
+        this.useDisk = useDisk;
+    }
+
+    @Override
+    public boolean isExplain() {
+        return explain;
+    }
+
+    @Override
+    public void setExplain(boolean explain) {
+        this.explain = explain;
     }
 
     @Override
@@ -46,8 +49,8 @@ public class AggregatorImpl<T, R> implements Aggregator<T, R> {
     }
 
     @Override
-    public void setSearchType(Class<? extends T> type) {
-        this.type = type;
+    public void setMorphium(Morphium m) {
+        morphium = m;
     }
 
     @Override
@@ -56,8 +59,8 @@ public class AggregatorImpl<T, R> implements Aggregator<T, R> {
     }
 
     @Override
-    public void setResultType(Class<? extends R> type) {
-        rType = type;
+    public void setSearchType(Class<? extends T> type) {
+        this.type = type;
     }
 
     @Override
@@ -66,15 +69,13 @@ public class AggregatorImpl<T, R> implements Aggregator<T, R> {
     }
 
     @Override
-    public Aggregator<T, R> project(Map<String, Object> m) {
-        DBObject o = new BasicDBObject("$project", new BasicDBObject(m));
-        params.add(o);
-        return this;
+    public void setResultType(Class<? extends R> type) {
+        rType = type;
     }
 
     @Override
     public Aggregator<T, R> project(String... m) {
-        Map<String, Object> map = new HashMap<String, Object>();
+        Map<String, Object> map = new HashMap<>();
         for (String sm : m) {
             map.put(sm, 1);
         }
@@ -82,43 +83,51 @@ public class AggregatorImpl<T, R> implements Aggregator<T, R> {
     }
 
     @Override
-    public Aggregator<T, R> project(BasicDBObject m) {
-        DBObject o = new BasicDBObject("$project", new BasicDBObject(m));
+    public Aggregator<T, R> project(Map<String, Object> m) {
+        Map<String, Object> o = Utils.getMap("$project", m);
         params.add(o);
         return this;
     }
 
     @Override
     public Aggregator<T, R> match(Query<T> q) {
-        DBObject o = new BasicDBObject("$match", q.toQueryObject());
+        Map<String, Object> o = Utils.getMap("$match", q.toQueryObject());
+        collectionName = q.getCollectionName();
+        params.add(o);
+        return this;
+    }
+
+    @Override
+    public Aggregator<T, R> matchSubQuery(Query<?> q) {
+        Map<String, Object> o = Utils.getMap("$match", q.toQueryObject());
         params.add(o);
         return this;
     }
 
     @Override
     public Aggregator<T, R> limit(int num) {
-        DBObject o = new BasicDBObject("$limit", num);
+        Map<String, Object> o = Utils.getMap("$limit", num);
         params.add(o);
         return this;
     }
 
     @Override
     public Aggregator<T, R> skip(int num) {
-        DBObject o = new BasicDBObject("$skip", num);
+        Map<String, Object> o = Utils.getMap("$skip", num);
         params.add(o);
         return this;
     }
 
     @Override
     public Aggregator<T, R> unwind(String listField) {
-        DBObject o = new BasicDBObject("$unwind", listField);
+        Map<String, Object> o = Utils.getMap("$unwind", listField);
         params.add(o);
         return this;
     }
 
     @Override
     public Aggregator<T, R> sort(String... prefixed) {
-        Map<String, Integer> m = new LinkedHashMap<String, java.lang.Integer>();
+        Map<String, Integer> m = new LinkedHashMap<>();
         for (String i : prefixed) {
             String fld = i;
             int val = 1;
@@ -132,7 +141,7 @@ public class AggregatorImpl<T, R> implements Aggregator<T, R> {
             if (i.startsWith("$")) {
                 fld = fld.substring(1);
                 if (!fld.contains(".")) {
-                    fld = ah.getFieldName(type, fld);
+                    fld = morphium.getARHelper().getFieldName(type, fld);
                 }
             }
             m.put(fld, val);
@@ -143,28 +152,42 @@ public class AggregatorImpl<T, R> implements Aggregator<T, R> {
 
     @Override
     public Aggregator<T, R> sort(Map<String, Integer> sort) {
-        DBObject o = new BasicDBObject("$sort", new BasicDBObject(sort));
+        Map<String, Object> o = Utils.getMap("$sort", sort);
         params.add(o);
         return this;
     }
 
     @Override
-    public Group<T, R> group(BasicDBObject id) {
-        return new Group<T, R>(this, id);
+    public String getCollectionName() {
+        if (collectionName == null) {
+            collectionName = morphium.getMapper().getCollectionName(type);
+        }
+        return collectionName;
     }
 
     @Override
-    public Group<T, R> group(Map<String, String> idSubObject) {
-        return new Group<T, R>(this, idSubObject);
+    public void setCollectionName(String cn) {
+        collectionName = cn;
+    }
+
+    @Override
+    public Group<T, R> group(Map<String, Object> id) {
+        return new Group<>(this, id);
+    }
+
+    @Override
+    public Group<T, R> groupSubObj(Map<String, String> idSubObject) {
+        //noinspection unchecked,unchecked
+        return new Group(this, idSubObject);
     }
 
     @Override
     public Group<T, R> group(String id) {
-        return new Group<T, R>(this, id);
+        return new Group<>(this, id);
     }
 
     @Override
-    public void addOperator(DBObject o) {
+    public void addOperator(Map<String, Object> o) {
         params.add(o);
     }
 
@@ -177,19 +200,19 @@ public class AggregatorImpl<T, R> implements Aggregator<T, R> {
     public void aggregate(final AsyncOperationCallback<R> callback) {
         if (callback == null) {
             morphium.aggregate(this);
-        }
-        executor.submit(new Runnable() {
-            @Override
-            public void run() {
+        } else {
+
+            morphium.queueTask(() -> {
                 long start = System.currentTimeMillis();
                 List<R> ret = morphium.aggregate(AggregatorImpl.this);
                 callback.onOperationSucceeded(AsyncOperationType.READ, null, System.currentTimeMillis() - start, ret, null, AggregatorImpl.this);
-            }
-        });
+            });
+        }
     }
 
     @Override
-    public List<DBObject> toAggregationList() {
+    public List<Map<String, Object>> toAggregationList() {
         return params;
     }
+
 }

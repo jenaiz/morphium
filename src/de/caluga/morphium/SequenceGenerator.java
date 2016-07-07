@@ -1,10 +1,9 @@
 package de.caluga.morphium;
 
+import de.caluga.morphium.driver.MorphiumDriverException;
+import de.caluga.morphium.driver.bson.MorphiumId;
 import de.caluga.morphium.query.Query;
-import org.apache.log4j.Logger;
-import org.bson.types.ObjectId;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -28,17 +27,13 @@ import java.util.UUID;
 
 @SuppressWarnings("UnusedDeclaration")
 public class SequenceGenerator {
+    private static Logger log = new Logger(SequenceGenerator.class);
     private int inc;
     private long startValue;
     private Morphium morphium;
     private String id;
     private String name;
 
-    private static Logger log = Logger.getLogger(SequenceGenerator.class);
-
-    public SequenceGenerator() {
-        this(MorphiumSingleton.get(), "seq", 1, 1);
-    }
 
     public SequenceGenerator(Morphium m, String n) {
         this(m, n, 1, 1);
@@ -54,32 +49,33 @@ public class SequenceGenerator {
         this.morphium = mrph;
         id = UUID.randomUUID().toString();
 
-        for (int i = 0; i < morphium.getConfig().getRetriesOnNetworkError(); i++) {
-            try {
-                if (!morphium.getDatabase().collectionExists(morphium.getMapper().getCollectionName(Sequence.class)) || morphium.createQueryFor(Sequence.class).f("name").eq(name).countAll() == 0) {
-                    //sequence does not exist yet
-                    if (log.isDebugEnabled()) log.debug("Sequence does not exist yet... inserting");
-//            Query<Sequence> seq = morphium.createQueryFor(Sequence.class);
-//            seq.f("name").eq(name);
-//
-//            Map<String, Object> values = new HashMap<String, Object>();
-//            values.put("locked_by", null);
-//            values.put("current_value", startValue - inc);
-//            morphium.set(seq, values, true, false);
-//            morphium.ensureIndicesFor(Sequence.class);
-
-                    Sequence s = new Sequence();
-                    s.setCurrentValue(startValue - inc);
-                    s.setName(name);
-                    s.setId(new ObjectId(new Date(0l), name.hashCode()));
-                    morphium.storeNoCache(s);
-                    //inserted
+        try {
+            if (!morphium.getDriver().exists(morphium.getConfig().getDatabase(), morphium.getMapper().getCollectionName(Sequence.class)) || morphium.createQueryFor(Sequence.class).f("name").eq(name).countAll() == 0) {
+                //sequence does not exist yet
+                if (log.isDebugEnabled()) {
+                    log.debug("Sequence does not exist yet... inserting");
                 }
-                break;
-            } catch (Throwable t) {
-                morphium.handleNetworkError(i, t);
+                //            Query<Sequence> seq = morphium.createQueryFor(Sequence.class);
+                //            seq.f("name").eq(name);
+                //
+                //            Map<String, Object> values = new HashMap<String, Object>();
+                //            values.put("locked_by", null);
+                //            values.put("current_value", startValue - inc);
+                //            morphium.set(seq, values, true, false);
+                //            morphium.ensureIndicesFor(Sequence.class);
+
+                Sequence s = new Sequence();
+                s.setCurrentValue(startValue - inc);
+                s.setName(name);
+                //                s.setId(new MongoId(new Date(0l), name.hashCode() & 0xffffff));
+                s.setId(new MorphiumId());
+                morphium.storeNoCache(s);
+                //inserted
             }
+        } catch (MorphiumDriverException e) {
+            throw new RuntimeException(e);
         }
+
     }
 
     public long getCurrentValue() {
@@ -92,7 +88,12 @@ public class SequenceGenerator {
     }
 
     public long getNextValue() {
-        return getNextValue(0);
+        try {
+            return getNextValue(0);
+        } catch (RecursionException e) {
+            log.error("REcursion failed, retrying...");
+            return getNextValue(0);
+        }
     }
 
     private synchronized long getNextValue(int recLevel) {
@@ -101,14 +102,19 @@ public class SequenceGenerator {
             log.error("Sequence vanished?");
             throw new RuntimeException("Sequence vanished");
         }
-        Map<String, Object> values = new HashMap<String, Object>();
+        Map<String, Object> values = new HashMap<>();
         Sequence sequence = seq.get();
         if (recLevel > 30) {
             log.error("Could not get lock on Sequence " + name + " Checking timestamp...");
-            if (System.currentTimeMillis() - sequence.getLockedAt() > 1000 * 30) {
+            if (System.currentTimeMillis() - sequence.getLockedAt() > 1000 * 5) {
                 log.error("Was locked for more than 30s - assuming error, resetting lock");
                 sequence.setLockedBy(null);
                 morphium.store(sequence);
+                //noinspection EmptyCatchBlock
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                }
                 if (log.isDebugEnabled()) {
                     log.debug("overwriting lock for locked sequence " + name);
                 }
@@ -129,11 +135,11 @@ public class SequenceGenerator {
 
         if (seq.countAll() == 0) {
             //locking failed... wait a moment, try again
-//            if (log.isDebugEnabled()) {
-            log.warn("Locking failed - recursing");
-//            }
+            //            if (log.isDebugEnabled()) {
+            log.warn("Locking failed on level " + recLevel + " - recursing.");
+            //            }
             try {
-                Thread.sleep(1000);
+                Thread.sleep(300);
             } catch (InterruptedException ignored) {
             }
             return getNextValue(recLevel + 1);
@@ -145,13 +151,15 @@ public class SequenceGenerator {
             log.debug("Found it!");
         }
 
-//        Map<String, Object> values = new HashMap<String, Object>();
+        //        Map<String, Object> values = new HashMap<String, Object>();
         morphium.inc(seq, "current_value", inc);
-        if (log.isDebugEnabled()) log.debug("increased it");
+        if (log.isDebugEnabled()) {
+            log.debug("increased it");
+        }
         Sequence s = seq.get();
         if (s == null) {
             log.error("locked Sequence not found anymore?");
-            seq = MorphiumSingleton.get().createQueryFor(Sequence.class).f("name").eq(name);
+            seq = morphium.createQueryFor(Sequence.class).f("name").eq(name);
             for (Sequence sq : seq.asList()) {
                 log.error("Sequence: " + sq.toString());
             }
@@ -159,7 +167,9 @@ public class SequenceGenerator {
         }
         s.setLockedBy(null);
         morphium.store(s);
-        if (log.isDebugEnabled()) log.debug("unlocked it");
+        if (log.isDebugEnabled()) {
+            log.debug("unlocked it");
+        }
 
         return s.getCurrentValue();
 
@@ -203,5 +213,9 @@ public class SequenceGenerator {
 
     public void setMorphium(Morphium morphium) {
         this.morphium = morphium;
+    }
+
+
+    public class RecursionException extends RuntimeException {
     }
 }
